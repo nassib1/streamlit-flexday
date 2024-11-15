@@ -4,7 +4,6 @@ import altair as alt
 from datetime import datetime, timedelta
 
 # Sample Data Generation (Replace this with actual data)
-# Simulate data for metrics at the top
 user_count = 33
 collections_count = 42
 ingested_files = 10900
@@ -46,11 +45,41 @@ for col, (metric_name, metric_value) in zip(cols, metrics):
 
 # Questions Asked Trend over Time
 st.write("### Questions Asked Trend")
-trend_chart = alt.Chart(questions_data).mark_line(point=True).encode(
-    x='Date:T',
-    y=alt.Y('Queries Count:Q', title="Queries Count"),
-    tooltip=['Date:T', 'Queries Count:Q']
-).properties(width=700, height=300)
+
+# Add mouseover vertical line tooltip for "Questions Asked Trend"
+nearest = alt.selection_point(nearest=True, on="pointerover", fields=["Date"], empty=False)
+
+line = alt.Chart(questions_data).mark_line().encode(
+    x="Date:T",
+    y="Queries Count:Q"
+)
+
+selectors = alt.Chart(questions_data).mark_point().encode(
+    x="Date:T",
+    opacity=alt.value(0),
+).add_params(
+    nearest
+)
+
+points = line.mark_point().encode(
+    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+)
+
+# Tooltip includes both Date and Queries Count
+rules = alt.Chart(questions_data).mark_rule(color="gray").encode(
+    x="Date:T",
+    tooltip=[alt.Tooltip('Date:T', title='Date'),
+             alt.Tooltip('Queries Count:Q', title='Queries Count')]
+).transform_filter(
+    nearest
+)
+
+trend_chart = alt.layer(
+    line, selectors, points, rules
+).properties(
+    width=700, height=300
+)
+
 st.altair_chart(trend_chart, use_container_width=True)
 
 # Questions by Collection Pie Chart
@@ -66,9 +95,39 @@ st.altair_chart(pie_chart, use_container_width=True)
 st.write("### Active Users")
 active_users_data = questions_data.copy()
 active_users_data['Users Count'] = (active_users_data['Queries Count'] // 10).clip(upper=8)
-active_users_chart = alt.Chart(active_users_data).mark_line(point=True).encode(
-    x='Date:T',
-    y=alt.Y('Users Count:Q', title="Users Count"),
-    tooltip=['Date:T', 'Users Count:Q']
-).properties(width=700, height=300)
+
+nearest_active = alt.selection_point(nearest=True, on="pointerover", fields=["Date"], empty=False)
+
+# Active Users Trend without interpolation
+line_active = alt.Chart(active_users_data).mark_line().encode(
+    x="Date:T",
+    y="Users Count:Q"
+)
+
+selectors_active = alt.Chart(active_users_data).mark_point().encode(
+    x="Date:T",
+    opacity=alt.value(0),
+).add_params(
+    nearest_active
+)
+
+points_active = line_active.mark_point().encode(
+    opacity=alt.condition(nearest_active, alt.value(1), alt.value(0))
+)
+
+# Tooltip includes both Date and Users Count
+rules_active = alt.Chart(active_users_data).mark_rule(color="gray").encode(
+    x="Date:T",
+    tooltip=[alt.Tooltip('Date:T', title='Date'),
+             alt.Tooltip('Users Count:Q', title='Users Count')]
+).transform_filter(
+    nearest_active
+)
+
+active_users_chart = alt.layer(
+    line_active, selectors_active, points_active, rules_active
+).properties(
+    width=700, height=300
+)
+
 st.altair_chart(active_users_chart, use_container_width=True)
