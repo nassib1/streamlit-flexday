@@ -1,151 +1,74 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import altair as alt
+from datetime import datetime, timedelta
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Sample Data Generation (Replace this with actual data)
+# Simulate data for metrics at the top
+user_count = 33
+collections_count = 42
+ingested_files = 10900
+searches_count = 3900
+conversations_count = 192
+market_reports_count = 16
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Generate a sample DataFrame for "Questions Asked Trend" and "Active Users"
+date_range = pd.date_range(start="2024-10-15", end="2024-11-14")
+questions_data = pd.DataFrame({
+    'Date': date_range,
+    'Queries Count': [int(abs(100 * (0.5 - i % 7 / 10))) for i in range(len(date_range))]
+})
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Generate sample data for "Questions by Collection"
+collection_data = pd.DataFrame({
+    'Collection': ['Market-Intel-Data-Processing', 'Adtalem-student-bot-v', 'Chicago HR Policies',
+                   'tropicana-demo-bot', 'Irving-demo', 'EDU_Demo', 'frenchopendemo',
+                   'GoSpotCheck_Trop', 'EDU_VirtualTA'],
+    'Percentage': [51.41, 10.02, 7.25, 6.54, 3.82, 3.35, 2.93, 1.53, 1.4]
+})
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# Sidebar title
+st.sidebar.title("Chatbot Interaction Dashboard")
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
+# Display metrics at the top
+st.write("### Summary Metrics")
+cols = st.columns(6)
+metrics = [
+    ("Users", user_count),
+    ("Collections", collections_count),
+    ("Ingested Files", ingested_files),
+    ("Searches", searches_count),
+    ("Conversations", conversations_count),
+    ("Market Reports", market_reports_count),
 ]
+for col, (metric_name, metric_value) in zip(cols, metrics):
+    col.metric(metric_name, f"{metric_value:,}")
 
-st.header('GDP over time', divider='gray')
+# Questions Asked Trend over Time
+st.write("### Questions Asked Trend")
+trend_chart = alt.Chart(questions_data).mark_line(point=True).encode(
+    x='Date:T',
+    y=alt.Y('Queries Count:Q', title="Queries Count"),
+    tooltip=['Date:T', 'Queries Count:Q']
+).properties(width=700, height=300)
+st.altair_chart(trend_chart, use_container_width=True)
 
-''
+# Questions by Collection Pie Chart
+st.write("### Questions by Collection")
+pie_chart = alt.Chart(collection_data).mark_arc().encode(
+    theta=alt.Theta(field="Percentage", type="quantitative"),
+    color=alt.Color(field="Collection", type="nominal"),
+    tooltip=["Collection", "Percentage"]
+).properties(width=350, height=350)
+st.altair_chart(pie_chart, use_container_width=True)
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# Active Users Trend
+st.write("### Active Users")
+active_users_data = questions_data.copy()
+active_users_data['Users Count'] = (active_users_data['Queries Count'] // 10).clip(upper=8)
+active_users_chart = alt.Chart(active_users_data).mark_line(point=True).encode(
+    x='Date:T',
+    y=alt.Y('Users Count:Q', title="Users Count"),
+    tooltip=['Date:T', 'Users Count:Q']
+).properties(width=700, height=300)
+st.altair_chart(active_users_chart, use_container_width=True)

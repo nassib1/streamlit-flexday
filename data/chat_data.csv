@@ -1,0 +1,6 @@
+"Timestamp","User ID","Bot ID","Query","Response","Files",
+"1960","user123","botA1","What is the weather today?","The weather today is sunny with a high of 75째F.","[]",
+"1961","user456","botA1","Can you show me the latest sales report?","Here is the latest sales report.","[]",
+"1962","user789","botB2","What's the exchange rate for USD to EUR?","The current exchange rate for USD to EUR is 0.89.","[]",
+"1963","user123","botA1","Upload the files to the server","Files have been successfully uploaded.","[]",
+"1964","user456","botA1","Please summarize the report.","The summary of the report is as follows...","[]"
